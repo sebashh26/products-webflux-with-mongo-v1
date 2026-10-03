@@ -1,0 +1,60 @@
+package com.matecomp.service;
+
+import com.matecomp.model.Producto;
+import com.matecomp.repository.ProductoRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.time.Duration;
+
+@Service
+public class ProductosServiceImpl implements ProductosService {
+
+	@Autowired
+    ProductoRepository productosRepository;
+
+	@Override
+	public Flux<Producto> catalogo() {
+		return productosRepository.findAll()
+				.delayElements(Duration.ofSeconds(3));
+	}
+
+
+
+	@Override
+	public Flux<Producto> productosCategoria(String categoria) {
+		return productosRepository.findByCategoria(categoria);
+	}
+
+	@Override
+	public Mono<Producto> productoCodigo(int cod) {
+		return productosRepository.findById(cod);// si no existe la documentacion dice q devuelve un mono empty
+	}
+
+	@Override
+	public Mono<Void> altaProducto(Producto producto) {
+		return productoCodigo(producto.getId())//Mono<Producto>
+				.switchIfEmpty( Mono.defer(() -> productosRepository.save(producto)))//Mono<Producto> //just te dice q ese rato tiene el propducto y defer solo cuando se ejecute es decir cuando alguien se suscriba
+				.then();//Mono<Void>
+	}
+
+	@Override
+	public Mono<Producto> eliminarProducto(int cod) {
+		return productoCodigo(cod) //Mono<Producto>
+				.flatMap(p -> productosRepository.deleteById(p.getId())//mono void
+						.then(Mono.just(p)));//mono producto
+
+	}
+
+	@Override
+	public Mono<Producto> actualizarPrecio(int cod, double precio) {
+		return productoCodigo(cod) //Mono<Producto>
+				.flatMap(p->{
+					p.setPrecioUnitario(precio);
+					return productosRepository.save(p);// mono producto
+				});///mono producto
+	}
+
+}
